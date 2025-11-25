@@ -18,7 +18,7 @@ pipeline {
                         def scriptFolders = ["DBScripts/Tables", "DBScripts/StoredProcedures"]
  
                         scriptFolders.each { folder ->
-                            def files = findFiles(glob: "${folder}/*.sql")
+                            def files = findFiles(glob: "**/*.sql")
  
                             files.each { file ->
  

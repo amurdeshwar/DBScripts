@@ -29,7 +29,7 @@ pipeline {
                                 // Check if script executed already
                                 def checkCmd = """
                                     sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U ${DB_USER} -P ${DB_PASS} \
-                                    -Q "SELECT COUNT(*) FROM ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
+                                    -Q "SELECT COUNT(*) FROM dbo.ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
                                 """
  
                                 def result = bat(script: checkCmd, returnStdout: true).trim()
@@ -46,7 +46,7 @@ pipeline {
                                     // Insert into history table
                                     bat """
                                         sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U ${DB_USER} -P ${DB_PASS} \
-                                        -Q "INSERT INTO ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
+                                        -Q "INSERT INTO dbo.ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
                                     """
  
                                 } else {

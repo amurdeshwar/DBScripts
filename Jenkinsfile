@@ -19,49 +19,47 @@ pipeline {
  
                     script {
  
-                        // Folders to scan
-                        def scriptFolders = [
-                            "DBScripts/Tables",
-                            "DBScripts/StoredProcedures"
-                        ]
+                        // FIXED FOLDER PATHS
+                        def scriptFolders = ["Tables", "StoredProcedures"]
  
                         scriptFolders.each { folder ->
  
-                            // Find SQL files inside the folder
+                            echo "Looking for SQL files in: ${folder}"
+ 
                             def files = findFiles(glob: "${folder}/*.sql")
  
-                            files.each { file ->
-                                def scriptName = file.name
+                            if (files.size() == 0) {
+                                echo "❗ No SQL files found in ${folder}"
+                            }
  
+                            files.each { file ->
+ 
+                                def scriptName = file.name
                                 echo "Checking script: ${scriptName}"
  
-                                // ---- Step 1: Check execution history ----
                                 def checkCmd = """
-                                    sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
+                                    sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% \
+                                    -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
                                 """
  
                                 def output = bat(script: checkCmd, returnStdout: true).trim()
- 
-                                // Extract last numeric value (sqlcmd adds extra header text)
                                 def count = output.replaceAll(/(?s).*?(\d+)$/, "\$1")
  
                                 if (count == "0") {
-                                    echo "Executing script: ${scriptName}"
  
-                                    // ---- Step 2: Execute SQL file ----
+                                    echo "Executing: ${scriptName}"
+ 
                                     bat """
                                         sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -i "${file.path}"
                                     """
  
-                                    // ---- Step 3: Insert execution history ----
                                     bat """
-                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -Q "INSERT INTO dbo.ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
+                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% \
+                                        -Q "INSERT INTO dbo.ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
                                     """
  
-                                    echo "Inserted history for: ${scriptName}"
- 
                                 } else {
-                                    echo "Skipping: ${scriptName} (already executed)"
+                                    echo "Skipping: ${scriptName} (Already Executed)"
                                 }
                             }
                         }

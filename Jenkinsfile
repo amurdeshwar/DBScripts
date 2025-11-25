@@ -8,13 +8,6 @@ pipeline {
  
     stages {
  
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/amurdeshwar/DBScripts.git'
-            }
-        }
- 
         stage('Run DB Scripts') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'sql-db-creds',

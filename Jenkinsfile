@@ -2,52 +2,63 @@ pipeline {
     agent any
  
     environment {
-        DB_SERVER = "10.179.10.49"          // e.g. localhost,1433
-        DB_NAME   = "gemOffice"            // e.g. EmployeeDB
+        DB_SERVER = "10.179.10.49"
+        DB_NAME   = "gemOffice"
     }
  
     stages {
- 
         stage('Run DB Scripts') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'sql-db-creds',
-                                                usernameVariable: 'DB_USER',
-                                                passwordVariable: 'DB_PASS')]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'sql-db-creds',
+                        usernameVariable: 'DB_USER',
+                        passwordVariable: 'DB_PASS'
+                    )
+                ]) {
  
                     script {
-                        def scriptFolders = ["DBScripts/Tables", "DBScripts/StoredProcedures"]
+ 
+                        // Folders to scan
+                        def scriptFolders = [
+                            "DBScripts/Tables",
+                            "DBScripts/StoredProcedures"
+                        ]
  
                         scriptFolders.each { folder ->
-                            def files = findFiles(glob: "**/*.sql")
+ 
+                            // Find SQL files inside the folder
+                            def files = findFiles(glob: "${folder}/*.sql")
  
                             files.each { file ->
- 
                                 def scriptName = file.name
  
                                 echo "Checking script: ${scriptName}"
  
-                                // Check if script executed already
+                                // ---- Step 1: Check execution history ----
                                 def checkCmd = """
-                                    sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U ${DB_USER} -P ${DB_PASS} \
-                                    -Q "SELECT COUNT(*) FROM dbo.ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
+                                    sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM dbo.ScriptExecutionHistory WHERE ScriptName='${scriptName}'"
                                 """
  
-                                def result = bat(script: checkCmd, returnStdout: true).trim()
+                                def output = bat(script: checkCmd, returnStdout: true).trim()
  
-                                if (result.endsWith("0")) {
+                                // Extract last numeric value (sqlcmd adds extra header text)
+                                def count = output.replaceAll(/(?s).*?(\d+)$/, "\$1")
  
+                                if (count == "0") {
                                     echo "Executing script: ${scriptName}"
  
-                                    // Execute SQL script
+                                    // ---- Step 2: Execute SQL file ----
                                     bat """
-                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U ${DB_USER} -P ${DB_PASS} -i "${file.path}"
+                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -i "${file.path}"
                                     """
  
-                                    // Insert into history table
+                                    // ---- Step 3: Insert execution history ----
                                     bat """
-                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U ${DB_USER} -P ${DB_PASS} \
-                                        -Q "INSERT INTO dbo.ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
+                                        sqlcmd -S ${DB_SERVER} -d ${DB_NAME} -U %DB_USER% -P %DB_PASS% -Q "INSERT INTO dbo.ScriptExecutionHistory (ScriptName, Status) VALUES ('${scriptName}', 'Success')"
                                     """
+ 
+                                    echo "Inserted history for: ${scriptName}"
  
                                 } else {
                                     echo "Skipping: ${scriptName} (already executed)"

@@ -6,3 +6,5 @@ CREATE TABLE dbo.Test_script (
 GO
 
 ALTER TABLE dbo.Test_script ADD Age INT;
+
+ALTER TABLE dbo.Test_script ADD Age INT;
